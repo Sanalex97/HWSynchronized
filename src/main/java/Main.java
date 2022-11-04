@@ -10,7 +10,32 @@ public class Main {
     public static void main(String[] args) throws InterruptedException {
         List<Thread> threads = new ArrayList<>();
 
-        for (int i = 0; i < 1000; i++) {
+        Runnable runnable2 = () -> {
+            while (!Thread.interrupted()) {
+                synchronized (sizeToFreq) {
+                    if (sizeToFreq.isEmpty()) {
+                        try {
+                            sizeToFreq.wait();
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                    for (Integer key : sizeToFreq.keySet()) {
+
+                        int val = sizeToFreq.get(key);
+
+                        if (val > maxCount) {
+                            maxCount = val;
+                            maxFrequency = key;
+                        }
+                    }
+                    System.out.println("Самое частое количество повторений " + maxFrequency + " (встретилось " + maxCount + " раз)");
+                }
+            }
+        };
+        Thread thread2 = new Thread(runnable2);
+        thread2.start();
+
             Runnable runnable = () -> {
                 String route = generateRoute("RLRFR", 100);
 
@@ -28,42 +53,18 @@ public class Main {
                     sizeToFreq.notify();
                 }
             };
+
+        for (int i = 0; i < 1000; i++) {
             Thread thread = new Thread(runnable);
             thread.start();
             threads.add(thread);
-
-            Runnable runnable2 = () -> {
-                while (!Thread.interrupted()) {
-                    synchronized (sizeToFreq) {
-                        if (sizeToFreq.isEmpty()) {
-                            try {
-                                sizeToFreq.wait();
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-                        for (Integer key : sizeToFreq.keySet()) {
-
-                            int val = sizeToFreq.get(key);
-
-                            if (val > maxCount) {
-                                maxCount = val;
-                                maxFrequency = key;
-                            }
-                        }
-                        System.out.println("Самое частое количество повторений " + maxFrequency + " (встретилось " + maxCount + " раз)");
-                    }
-                }
-            };
-            Thread thread2 = new Thread(runnable2);
-            thread2.start();
-
-            for (Thread thread1 : threads) {
-                thread1.join();
-            }
-
-            thread2.interrupt();
         }
+
+        for (Thread thread1 : threads) {
+            thread1.join();
+        }
+
+        thread2.interrupt();
     }
 
     public static String generateRoute(String letters, int length) {
